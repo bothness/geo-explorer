@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v1.12.0/mapbox-gl.css" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&display=swap" />
+  <link rel="stylesheet" href="./css/app.css" />
+  <title>ONS Geography Explorer</title>
+</head>
+
+<body>
+  <div class="container-fluid">
+    <div class="row">
+      <div id="menu" class="col-3">
+        <h4 class="mt-4">ONS Geography Explorer</h4>
+        <div class="form-group">
+          <label for="geography-group"><strong>Select geography</strong></label>
+          <select class="form-control" id="geography-group">
+            <option>Census Geographies (6)</option>
+          </select>
+          <select class="form-control mt-1" id="geography">
+          </select>
+        </div>
+        <form id="form">
+          <div class="form-row mb-0">
+            <div class="form-group col mb-0">
+              <label for="search"><strong>Find by postcode</strong></label>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group col-9">
+              <input id="postcode" type="text" class="form-control" id="search" placeholder="Enter postcode...">
+            </div>
+            <div class="form-group col-3">
+              <button type="submit" class="btn btn-info btn-block">Go!</button>
+            </div>
+          </div>
+        </form>
+        <div id="selected" class="mt-3" style="display: none;">
+          <hr/>
+          <i class="material-icons float-right link" onclick="toggleDiv(geoDiv)">close</i>
+          <h4 id="geo-name"></h4>
+          <table class="table table-sm">
+            <tbody>
+              <tr>
+                <th scope="row">Code</th>
+                <td id="geo-code"></td>
+              </tr>
+              <tr>
+                <th scope="row">Group</th>
+                <td id="geo-group"></td>
+              </tr>
+              <tr>
+                <th scope="row">Area</th>
+                <td id="geo-area"></td>
+              </tr>
+              <tr>
+                <th scope="row">Parents</th>
+                <td id="geo-parents"></td>
+              </tr>
+              <tr>
+                <th scope="row">Children</th>
+                <td id="geo-children"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="search" class="mt-3" style="display: none;">
+          <hr/>
+          <i class="material-icons float-right link" onclick="toggleDiv(searchDiv)">close</i>
+          <h4 id="code-name"></h4>
+          <p>This postcode falls within the following geographies</p>
+          <p><span id="code-hierarchy"></span></p>
+        </div>
+      </div>
+      <div id="map" class="col-9"></div>
+    </div>
+  </div>
+  <script src="https://api.mapbox.com/mapbox-gl-js/v1.12.0/mapbox-gl.js"></script>
+  <script src="https://d3js.org/d3-dsv.v1.min.js"></script>
+  <script src="./js/app.js"></script>
+</body>
+
+</html>

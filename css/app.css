@@ -1,0 +1,30 @@
+body {
+  font-size: 0.9rem;
+  font-family: 'Open Sans', sans-serif;
+}
+
+h4 {
+  font-weight: 700;
+}
+
+#map {
+  height: 100vh;
+  width: 100vw;
+}
+
+#menu {
+  height: 100vh;
+  overflow-y: scroll;
+}
+
+.mapboxgl-popup, .mapboxgl-popup-tip, .mapboxgl-popup-content {
+  pointer-events: none;
+}
+
+.link {
+  cursor: pointer;
+}
+
+.small {
+  font-size: 0.9rem;
+}
