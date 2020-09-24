@@ -162,6 +162,7 @@ const pcodeHierarchy = document.getElementById('code-hierarchy');
 const geoName = document.getElementById('geo-name');
 const geoCode = document.getElementById('geo-code');
 const geoGroup = document.getElementById('geo-group');
+const geoPop = document.getElementById('geo-pop');
 const geoArea = document.getElementById('geo-area');
 const geoParents = document.getElementById('geo-parents');
 const geoChildren = document.getElementById('geo-children');
@@ -216,35 +217,20 @@ function makeSelector(select, selector) {
 function postcodeSearch(e) {
   let code = postcode.value.replace(new RegExp(' ', 'g'), '').toUpperCase();
   let query = `PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-  PREFIX bestfit: <http://statistics.data.gov.uk/def/hierarchy/best-fit#>
-  PREFIX statgeo: <http://statistics.data.gov.uk/def/statistical-geography#>
   PREFIX within: <http://statistics.data.gov.uk/def/spatialrelations/within#>
   PREFIX postcode: <http://statistics.data.gov.uk/id/postcode/unit/>
   PREFIX geopos: <http://www.w3.org/2003/01/geo/wgs84_pos#>
-  
-  SELECT ?postcode ?lng ?lat
+    
+  SELECT ?postcode ?oa ?lng ?lat
   WHERE {
     postcode:${code} rdfs:label ?postcode ;
+                     within:outputarea ?oa_uri ;
                      geopos:lat ?lat ;
                      geopos:long ?lng .
+    ?oa_uri rdfs:label ?oa .
   }
   LIMIT 1`;
-  let parents = `PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-  PREFIX statgeo: <http://statistics.data.gov.uk/def/statistical-geography#>
-  PREFIX postcode: <http://statistics.data.gov.uk/id/postcode/unit/>
-  PREFIX foi: <http://publishmydata.com/def/ontology/foi/>
-    
-  SELECT DISTINCT ?code ?name
-  WHERE {
-    postcode:${code} foi:within ?geo .
-    ?geo rdfs:label ?code .
-    OPTIONAL {
-      ?geo statgeo:officialname ?name .
-    } .
-  }
-  LIMIT 30`;
   let url = globals.apigeo + encodeURIComponent(query);
-  let url2 = globals.apigeo + encodeURIComponent(parents);
 
   fetch(url)
     .then(response => response.text())
@@ -252,12 +238,32 @@ function postcodeSearch(e) {
     .then(json => {
       if (json[0]) {
         data.search = json[0];
+        let oa_code = json[0]['oa']
 
-        fetch(url2)
+        let parents = `PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+        PREFIX geoid: <http://statistics.data.gov.uk/id/statistical-geography/>
+        PREFIX geodef: <http://statistics.data.gov.uk/def/statistical-geography#>
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+        
+        SELECT ?code ?name
+        WHERE {
+          geoid:${oa_code} skos:broader+ ?parent .
+          ?parent rdfs:label ?code ;
+                  geodef:officialname ?name .
+        }
+        ORDER BY ?code
+        LIMIT 20`;
+        let url = globals.apicogs + encodeURIComponent(parents);
+
+        fetch(url)
           .then(response => response.text())
           .then(rawdata => d3.csvParse(rawdata))
           .then(json => {
             if (json[0]) {
+              json.unshift({
+                code: oa_code,
+                name: ''
+              })
               data.search.parents = json;
             }
 
@@ -312,7 +318,8 @@ function updateData(json) {
   geoName.innerHTML = json.name;
   geoCode.innerHTML = json.code;
   geoGroup.innerHTML = json.group;
-  geoArea.innerHTML = json.area.toLocaleString() + ' hectares';
+  geoArea.innerHTML = Number(json.area).toLocaleString() + ' hectares';
+  geoPop.innerHTML = Number(json.population).toLocaleString() + ' persons <small class="text-muted">(2011)</small>';
   let children = '';
   let parents = '';
 
@@ -373,6 +380,7 @@ function makeHierarchy(array) {
 
 // Function to get data for a geography
 function getData(code) {
+  let group = code.substring(0, 3);
   let query = `PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
   PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
   PREFIX statid: <http://statistics.data.gov.uk/id/statistical-geography/>
@@ -392,32 +400,71 @@ function getData(code) {
   LIMIT 1`;
   let children = `PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
   PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-  PREFIX statgeo: <http://statistics.data.gov.uk/id/statistical-geography/>
+  PREFIX geoid: <http://statistics.data.gov.uk/id/statistical-geography/>
+  PREFIX geodef: <http://statistics.data.gov.uk/def/statistical-geography#>
   
   SELECT ?code ?name
   WHERE {
-    statgeo:${code} skos:narrower ?child .
-    ?child rdfs:label ?code .
+    ?child skos:broader geoid:${code} ;
+           rdfs:label ?code .
     OPTIONAL {
-      ?child skos:prefLabel ?name .
-    } .
+      ?child geodef:officialname ?name .
+    }
   }
-  LIMIT 100`;
+  ORDER BY ?code
+  LIMIT 50`;
   let parents = `PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-  PREFIX statgeo: <http://statistics.data.gov.uk/def/statistical-geography#>
-  PREFIX statid: <http://statistics.data.gov.uk/id/statistical-geography/>
-  PREFIX foi: <http://publishmydata.com/def/ontology/foi/>
-    
-  SELECT DISTINCT ?code ?name
+  PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+  PREFIX geoid: <http://statistics.data.gov.uk/id/statistical-geography/>
+  PREFIX geodef: <http://statistics.data.gov.uk/def/statistical-geography#>
+  
+  SELECT ?code ?name
   WHERE {
-    statid:${code} foi:within ?geo .
-    ?geo rdfs:label ?code ;
-         statgeo:officialname ?name .
+    geoid:${code} skos:broader+ ?parent .
+    ?parent rdfs:label ?code ;
+            geodef:officialname ?name .
   }
   LIMIT 15`;
+  let pop1 = `PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+  PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+  PREFIX cube: <http://purl.org/linked-data/cube#>
+  PREFIX level: <http://gss-data.org.uk/def/geography/level/>
+  PREFIX census11: <http://gss-data.org.uk/data/gss_data/census-2011#>
+  PREFIX census11dim: <http://gss-data.org.uk/data/gss_data/census-2011#dimension/>
+  PREFIX measure: <http://gss-data.org.uk/def/measure/>
+  
+  SELECT (SUM(?count) AS ?population)
+  WHERE {
+    ?geography rdfs:label "${code}" ;
+               skos:narrower+ ?child .
+    ?child a level:E00 .
+    ?dimension census11dim:geography ?child ;
+               cube:dataSet census11:dataset ;
+               measure:count ?count .
+  }
+  GROUP BY ?geography
+  LIMIT 1`;
+  let pop2 = `PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+  PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+  PREFIX cube: <http://purl.org/linked-data/cube#>
+  PREFIX census11: <http://gss-data.org.uk/data/gss_data/census-2011#>
+  PREFIX census11dim: <http://gss-data.org.uk/data/gss_data/census-2011#dimension/>
+  PREFIX measure: <http://gss-data.org.uk/def/measure/>
+  
+  SELECT (SUM(?count) AS ?population)
+  WHERE {
+    ?geography rdfs:label "${code}" .
+    ?dimension census11dim:geography ?geography ;
+               cube:dataSet census11:dataset ;
+               measure:count ?count .
+  }
+  GROUP BY ?geography
+  LIMIT 1`;
+
   let url = globals.apicogs + encodeURIComponent(query);
   let url2 = globals.apicogs + encodeURIComponent(children);
-  let url3 = globals.apigeo + encodeURIComponent(parents);
+  let url3 = globals.apicogs + encodeURIComponent(parents);
+  let url4 = lookup[group]['source'] == 'oa' ? globals.apicogs + encodeURIComponent(pop2) : globals.apicogs + encodeURIComponent(pop1);
 
   // Get geodata
   fetch(url)
@@ -449,7 +496,17 @@ function getData(code) {
                   data.selected.parents = json;
                 }
 
-                updateData(data.selected);
+                // Get population
+                fetch(url4)
+                  .then(response => response.text())
+                  .then(rawdata => d3.csvParse(rawdata))
+                  .then(json => {
+                    if (json[0]) {
+                      data.selected.population = json[0]['population'];
+                    }
+
+                    updateData(data.selected);
+                  });
               });
           });
       }
@@ -627,11 +684,20 @@ function addLayers() {
   }
 }
 
+function setSelector() {
+  let zoom = map.getZoom();
+  for (var i = 0; i < maxzooms.length; i++) {
+    if (zoom < maxzooms[i][1]) {
+      selector.value = maxzooms[i][0];
+      break;
+    }
+  }
+}
+
 var map = new mapboxgl.Map({
   container: 'map',
   style: './data/style-omt.json',
-  center: [-0.12, 51.5],
-  zoom: 12,
+  bounds: [[-5.816, 49.864], [1.863, 55.872]],
   minZoom: 4,
   maxZoom: globals.maxzoom,
   attributionControl: false
@@ -649,16 +715,13 @@ const marker = new mapboxgl.Marker()
   .setLngLat([0, 0])
   .addTo(map);
 
-map.on('load', addLayers);
+map.on('load', function () {
+  addLayers();
+  setSelector();
+});
 
 map.on('zoom', function () {
-  let zoom = map.getZoom();
-  for (var i = 0; i < maxzooms.length; i ++) {
-    if (zoom < maxzooms[i][1]) {
-      selector.value = maxzooms[i][0];
-      break;
-    }
-  }
+  setSelector();
 });
 
 // Create geography selector
