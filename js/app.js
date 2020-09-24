@@ -381,6 +381,7 @@ function makeHierarchy(array) {
 // Function to get data for a geography
 function getData(code) {
   let group = code.substring(0, 3);
+  let oa_group = code.substring(0, 1) + '00';
   let query = `PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
   PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
   PREFIX statid: <http://statistics.data.gov.uk/id/statistical-geography/>
@@ -438,7 +439,7 @@ function getData(code) {
   WHERE {
     ?geography rdfs:label "${code}" ;
                skos:narrower+ ?child .
-    ?child a level:E00 .
+    ?child a level:${oa_group} .
     ?dimension census11dim:geography ?child ;
                cube:dataSet census11:dataset ;
                measure:count ?count .
