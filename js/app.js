@@ -317,7 +317,7 @@ function updateSearch(json) {
 function updateData(json) {
   geoName.innerHTML = json.name;
   geoCode.innerHTML = json.code;
-  geoGroup.innerHTML = json.group;
+  geoGroup.innerHTML = json.group_code + ' ' + json.group;
   geoArea.innerHTML = Number(json.area).toLocaleString() + ' hectares';
   geoPop.innerHTML = Number(json.population).toLocaleString() + ' persons <small class="text-muted">(2011)</small>';
   let children = '';
@@ -387,12 +387,13 @@ function getData(code) {
   PREFIX area: <http://statistics.data.gov.uk/def/measurement#>
   PREFIX entity: <http://statistics.data.gov.uk/def/statistical-entity#>
     
-  SELECT ?code ?name ?group ?area
+  SELECT ?code ?name ?group_code ?group ?area
   WHERE {
     statid:${code} rdfs:label ?code ;
                       entity:code ?grp ;
                       area:hasExtentOfTheRealmHectarage ?area .
-    ?grp rdfs:label ?group .
+    ?grp rdfs:label ?group_code ;
+         entity:name ?group .
     OPTIONAL {
       statid:${code} skos:prefLabel ?name .
     } .
