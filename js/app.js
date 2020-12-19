@@ -1,7 +1,8 @@
 const globals = {
   maxzoom: 15,
   apigeo: 'https://pmd3-production-drafter-onsgeo.publishmydata.com/v1/sparql/live?query=',
-  apicogs: 'https://staging.gss-data.org.uk/sparql?query='
+  apicogs: 'https://staging.gss-data.org.uk/sparql?query=',
+  apinomis: 'http://www.nomisweb.co.uk/api/v01/'
 }
 
 const layers = [
@@ -317,7 +318,7 @@ function updateSearch(json) {
 function updateData(json) {
   geoName.innerHTML = json.name;
   geoCode.innerHTML = json.code;
-  geoGroup.innerHTML = json.group_code + ' ' + json.group;
+  geoGroup.innerHTML = json.group;
   geoArea.innerHTML = Number(json.area).toLocaleString() + ' hectares';
   geoPop.innerHTML = Number(json.population).toLocaleString() + ' persons <small class="text-muted">(2011)</small>';
   let children = '';
@@ -325,14 +326,16 @@ function updateData(json) {
 
   // Return list of children
   if (json.children) {
+    let array = [];
     for (var i = 0; i < json.children.length; i++) {
       let code = json.children[i].code;
       let group = code.substring(0, 3);
       if (allcodes.includes(group)) {
         let name = json.children[i].name != '' ? json.children[i].name : code;
-        children += `<a href="#" onclick="navTo('${code}')">${name}</a>, `;
+        array.push(`<a href="#" onclick="navTo('${code}')">${name}</a>`);
       }
     }
+    children = array.join(', ');
   }
 
   // Turn parents into a hierarchy
@@ -383,34 +386,27 @@ function getData(code) {
   let group = code.substring(0, 3);
   let oa_group = code.substring(0, 1) + '00';
   let query = `PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-  PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-  PREFIX statid: <http://statistics.data.gov.uk/id/statistical-geography/>
-  PREFIX area: <http://statistics.data.gov.uk/def/measurement#>
-  PREFIX entity: <http://statistics.data.gov.uk/def/statistical-entity#>
-    
-  SELECT ?code ?name ?group_code ?group ?area
-  WHERE {
-    statid:${code} rdfs:label ?code ;
-                      entity:code ?grp ;
-                      area:hasExtentOfTheRealmHectarage ?area .
-    ?grp rdfs:label ?group_code ;
-         entity:name ?group .
-    OPTIONAL {
-      statid:${code} skos:prefLabel ?name .
-    } .
+  PREFIX geoid: <http://statistics.data.gov.uk/id/statistical-geography/>
+  PREFIX foi: <http://publishmydata.com/def/ontology/foi/>
+  PREFIX measure: <http://statistics.data.gov.uk/def/measurement#>
+  SELECT ?code ?name ?area ?group
+  WHERE
+  {
+    geoid:${code} foi:code ?code ;
+                    foi:displayName ?name ;
+                    measure:hasExtentOfTheRealmHectarage ?area ;
+                    foi:memberOf ?grp .
+    ?grp rdfs:label ?group .
   }
   LIMIT 1`;
-  let children = `PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-  PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+  let children = `PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
   PREFIX geoid: <http://statistics.data.gov.uk/id/statistical-geography/>
-  PREFIX geodef: <http://statistics.data.gov.uk/def/statistical-geography#>
-  
-  SELECT ?code ?name
+  SELECT DISTINCT ?code ?name
   WHERE {
     ?child skos:broader geoid:${code} ;
-           rdfs:label ?code .
+           skos:notation ?code .
     OPTIONAL {
-      ?child geodef:officialname ?name .
+      ?child skos:prefLabel ?name .
     }
   }
   ORDER BY ?code
@@ -427,46 +423,12 @@ function getData(code) {
             geodef:officialname ?name .
   }
   LIMIT 15`;
-  let pop1 = `PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-  PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-  PREFIX cube: <http://purl.org/linked-data/cube#>
-  PREFIX level: <http://gss-data.org.uk/def/geography/level/>
-  PREFIX census11: <http://gss-data.org.uk/data/gss_data/census-2011#>
-  PREFIX census11dim: <http://gss-data.org.uk/data/gss_data/census-2011#dimension/>
-  PREFIX measure: <http://gss-data.org.uk/def/measure/>
-  
-  SELECT (SUM(?count) AS ?population)
-  WHERE {
-    ?geography rdfs:label "${code}" ;
-               skos:narrower+ ?child .
-    ?child a level:${oa_group} .
-    ?dimension census11dim:geography ?child ;
-               cube:dataSet census11:dataset ;
-               measure:count ?count .
-  }
-  GROUP BY ?geography
-  LIMIT 1`;
-  let pop2 = `PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-  PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-  PREFIX cube: <http://purl.org/linked-data/cube#>
-  PREFIX census11: <http://gss-data.org.uk/data/gss_data/census-2011#>
-  PREFIX census11dim: <http://gss-data.org.uk/data/gss_data/census-2011#dimension/>
-  PREFIX measure: <http://gss-data.org.uk/def/measure/>
-  
-  SELECT (SUM(?count) AS ?population)
-  WHERE {
-    ?geography rdfs:label "${code}" .
-    ?dimension census11dim:geography ?geography ;
-               cube:dataSet census11:dataset ;
-               measure:count ?count .
-  }
-  GROUP BY ?geography
-  LIMIT 1`;
+  let pop = `dataset/NM_144_1.data.csv?date=latest&geography=${code}&rural_urban=0&cell=0&measures=20100&select=obs_value`;
 
-  let url = globals.apicogs + encodeURIComponent(query);
+  let url = globals.apigeo + encodeURIComponent(query);
   let url2 = globals.apicogs + encodeURIComponent(children);
   let url3 = globals.apicogs + encodeURIComponent(parents);
-  let url4 = lookup[group]['source'] == 'oa' ? globals.apicogs + encodeURIComponent(pop2) : globals.apicogs + encodeURIComponent(pop1);
+  let url4 = globals.apinomis + pop;
 
   // Get geodata
   fetch(url)
@@ -504,7 +466,7 @@ function getData(code) {
                   .then(rawdata => d3.csvParse(rawdata))
                   .then(json => {
                     if (json[0]) {
-                      data.selected.population = json[0]['population'];
+                      data.selected.population = json[0]['OBS_VALUE'];
                     }
 
                     updateData(data.selected);
