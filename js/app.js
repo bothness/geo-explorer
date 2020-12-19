@@ -2,7 +2,7 @@ const globals = {
   maxzoom: 15,
   apigeo: 'https://pmd3-production-drafter-onsgeo.publishmydata.com/v1/sparql/live?query=',
   apicogs: 'https://staging.gss-data.org.uk/sparql?query=',
-  apinomis: 'http://www.nomisweb.co.uk/api/v01/'
+  apinomis: 'https://www.nomisweb.co.uk/api/v01/'
 }
 
 const layers = [
